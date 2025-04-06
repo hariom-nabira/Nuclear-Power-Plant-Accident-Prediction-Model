@@ -1,47 +1,80 @@
-# Nuclear Power Plant Accident Detection System
+# Nuclear Power Plant Accident Detection (NPPAD)
 
-This project implements a real-time accident detection system for nuclear power plants using a Temporal Convolutional Network (TCN) with Attention Mechanism. The system analyzes continuous time-series data of operational parameters to predict potential Reactor Scram events within the next 5 minutes.
+A deep learning project for predicting Reactor Scram events in nuclear power plant accidents using Temporal Convolutional Networks (TCN) with Attention Mechanism.
 
-## Dataset
+## Project Overview
 
-The NPPAD (Nuclear Power Plant Accident Dataset) contains simulations of 12 different accident types:
-- LOCA (Loss of Coolant Accident)
-- SGBTR (Steam Generator Break Tube Rupture)
-- LR (Load Rejection)
-- MD (Main Steam Line Break)
-- SGATR (Steam Generator Auxiliary Feedwater Trip)
-- SLBIC (Steam Line Break Inside Containment)
-- LOCAC (Loss of Coolant Accident with Containment)
-- RI (Reactor Trip)
-- FLB (Feedwater Line Break)
-- LLB (Loop Line Break)
-- SLBOC (Steam Line Break Outside Containment)
-- RW (Reactor Water Level)
-
-Each accident type has 100 simulations with varying severity (1% to 100%). Each simulation contains:
-1. Time series data (97 operational parameters, 10-second intervals)
-2. Transient Report (detailed event log with Reactor Scram timestamps)
+This project aims to develop an early warning system for nuclear power plant accidents by analyzing operational parameters and predicting Reactor Scram events. The system uses a combination of Temporal Convolutional Networks and Attention Mechanism to process time series data and identify patterns that precede accidents.
 
 ## Project Structure
 
 ```
-.
-├── data_loader.py          # Data loading and preprocessing
-├── test_data_loader.py     # Data validation and analysis
-├── requirements.txt        # Project dependencies
-├── README.md              # Project documentation
-└── processed_data/        # Directory for processed data
-    ├── X_train.npy
-    ├── X_val.npy
-    ├── X_test.npy
-    ├── y_train.npy
-    ├── y_val.npy
-    └── y_test.npy
+Nuclear-Project/
+├── data/
+│   └── NPPAD/                    # Original dataset
+│       ├── LOCA/                 # Loss of Coolant Accident
+│       ├── SGBTR/               # Steam Generator Tube Rupture
+│       └── ...                   # Other accident types
+├── processed_data/              # Preprocessed data
+│   ├── X_train.npy             # Training features
+│   ├── y_train.npy             # Training labels
+│   ├── X_val.npy               # Validation features
+│   ├── y_val.npy               # Validation labels
+│   ├── X_test.npy              # Test features
+│   └── y_test.npy              # Test labels
+├── model/
+│   ├── tcn_attention.py        # Model architecture
+│   ├── train.py                # Training script
+│   ├── best_model.pth          # Saved model
+│   └── code_explanation.md     # Implementation details
+├── data_loader.py              # Data loading and preprocessing
+├── test_data_loader.py         # Data loader tests
+├── requirements.txt            # Project dependencies
+└── README.md                   # Project documentation
 ```
 
-## Setup
+## Model Architecture
 
-1. Create a virtual environment (recommended):
+The project implements a Temporal Convolutional Network (TCN) with Attention Mechanism:
+
+1. **Temporal Convolutional Network**
+   - Multiple temporal blocks with increasing dilation
+   - Residual connections for better gradient flow
+   - Batch normalization and dropout for regularization
+
+2. **Attention Mechanism**
+   - Focuses on important temporal features
+   - Improves prediction accuracy
+   - Provides interpretability through attention weights
+
+3. **Output Layer**
+   - Binary classification for Reactor Scram prediction
+   - Sigmoid activation for probability output
+
+## Features
+
+- **Data Processing**
+  - Handles 97 operational parameters
+  - Processes time series data
+  - Normalizes features
+  - Creates sliding windows
+
+- **Model Training**
+  - Early stopping based on validation AUC
+  - Model checkpointing
+  - Comprehensive metrics tracking
+  - GPU support
+
+- **Performance Metrics**
+  - Accuracy
+  - Precision
+  - Recall
+  - F1 Score
+  - AUC-ROC
+
+## Setup and Installation
+
+1. Create a virtual environment:
 ```bash
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
@@ -52,52 +85,91 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-3. Place the NPPAD dataset in the project root directory:
-```
-NPPAD/
-├── LOCA/
-│   ├── 1.csv
-│   ├── 1TransientReport.txt
-│   └── ...
-├── SGBTR/
-│   ├── 1.csv
-│   ├── 1TransientReport.txt
-│   └── ...
-└── ...
-```
-
-## Data Preparation
-
-Run the data preparation script to process the dataset:
+3. Prepare the dataset:
 ```bash
 python test_data_loader.py
 ```
 
-This will:
-1. Load and preprocess the data
-2. Generate sliding windows (5-minute lookback)
-3. Create derived features
-4. Split data into train/validation/test sets
-5. Save processed data in the `processed_data` directory
-6. Generate analysis plots:
-   - `label_distribution.png`: Distribution of accident/non-accident labels
-   - `feature_statistics.png`: Statistics of input features
+4. Train the model:
+```bash
+python model/train.py
+```
 
-## Data Processing Details
+## Dependencies
 
-The data processing pipeline includes:
-1. Loading time series data from CSV files
-2. Extracting Reactor Scram timestamps from Transient Reports
-3. Creating sliding windows (30 time steps = 5 minutes)
-4. Normalizing parameters to [0,1] range
-5. Generating derived features:
-   - Rate of change for critical parameters
-   - Rolling statistics (mean, std) for key parameters
-   - Parameter correlations within each window
+- Python 3.8+
+- PyTorch 1.9.0+
+- NumPy 1.21.0+
+- Pandas 1.3.0+
+- Matplotlib 3.4.0+
+- Seaborn 0.11.0+
+- scikit-learn 0.24.0+
 
-## Next Steps
+## Model Parameters
 
-1. Implement the TCN model architecture
-2. Add attention mechanism
-3. Develop training pipeline
-4. Implement real-time prediction system 
+- **Architecture**:
+  - Input size: 97 features
+  - Temporal blocks: [32, 64, 128] channels
+  - Kernel size: 3
+  - Dropout rate: 0.2
+
+- **Training**:
+  - Batch size: 32
+  - Learning rate: 0.001
+  - Early stopping patience: 10 epochs
+  - Maximum epochs: 50
+
+## Usage
+
+1. **Data Preparation**:
+```python
+from data_loader import DataLoader
+loader = DataLoader()
+loader.prepare_dataset()
+```
+
+2. **Model Training**:
+```python
+python model/train.py
+```
+
+3. **Model Loading**:
+```python
+from model.tcn_attention import create_model
+model = create_model(input_size=97)
+model.load_state_dict(torch.load('model/best_model.pth'))
+```
+
+## Project Phases
+
+1. **Phase 1: Data Preparation** ✅
+   - Data loading and preprocessing
+   - Feature engineering
+   - Dataset splitting
+
+2. **Phase 2: Model Implementation** ✅
+   - TCN architecture
+   - Attention mechanism
+   - Training pipeline
+
+3. **Phase 3: Model Evaluation** (Next)
+   - Performance metrics
+   - Visualization
+   - Error analysis
+
+4. **Phase 4: Deployment** (Future)
+   - Model optimization
+   - API development
+   - System integration
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Commit your changes
+4. Push to the branch
+5. Create a Pull Request
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details. 
