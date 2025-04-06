@@ -2,15 +2,98 @@ import os
 import pandas as pd
 import numpy as np
 import pickle
-from typing import Dict, Tuple
+from typing import Dict, Tuple, List, Set
 import json
 import time
+import shutil
 from sklearn.model_selection import train_test_split
 import gc  # For garbage collection
 
 from data_loader import NPPADDataLoader
 from time_series_processor import TimeSeriesProcessor
 from data_validator import DataValidator
+
+def standardize_columns(data_loader: NPPADDataLoader) -> List[str]:
+    """
+    Find columns that are common to all simulations and create a standard column order.
+    
+    Args:
+        data_loader: The data loader object with access to all simulations
+        
+    Returns:
+        List[str]: List of common column names in standard order (time column first)
+    """
+    print("Finding common columns across all simulations...")
+    
+    # Sample a few simulations from each accident type
+    all_column_sets = []
+    time_column_candidates = set()
+    
+    for accident_type in data_loader.accident_types:
+        sim_nums = list(data_loader.data_mapping[accident_type].keys())
+        
+        # Take at most 5 simulations from each accident type
+        sample_sims = sim_nums[:min(5, len(sim_nums))]
+        
+        for sim_num in sample_sims:
+            try:
+                df, _ = data_loader.load_simulation_data(accident_type, sim_num)
+                
+                # Assuming first column is time
+                time_col = df.columns[0]
+                time_column_candidates.add(time_col)
+                
+                # Add all columns to the set
+                all_column_sets.append(set(df.columns))
+            except Exception as e:
+                print(f"Error loading {accident_type} simulation {sim_num}: {e}")
+    
+    # Find common columns across all simulations
+    if not all_column_sets:
+        raise ValueError("No valid simulations found")
+        
+    common_columns = set.intersection(*all_column_sets)
+    print(f"Found {len(common_columns)} common columns across simulations")
+    
+    # Make sure we have at least one time column
+    if not time_column_candidates:
+        raise ValueError("No time column candidates found")
+    
+    # Choose the most common time column
+    time_column = max(time_column_candidates, key=lambda x: sum(1 for s in all_column_sets if x in s))
+    
+    # Make sure the time column is in common columns
+    if time_column not in common_columns:
+        raise ValueError(f"Time column {time_column} not common to all simulations")
+    
+    # Create standard column order (time column first, then others alphabetically)
+    other_columns = sorted(list(common_columns - {time_column}))
+    standard_columns = [time_column] + other_columns
+    
+    return standard_columns
+
+def standardize_dataframe(df: pd.DataFrame, standard_columns: List[str]) -> pd.DataFrame:
+    """
+    Standardize a dataframe to have exactly the specified columns in the given order.
+    
+    Args:
+        df: The dataframe to standardize
+        standard_columns: List of columns in standard order
+        
+    Returns:
+        pd.DataFrame: Standardized dataframe
+    """
+    # Create a new dataframe with only standard columns
+    std_df = pd.DataFrame()
+    
+    # Copy each column if it exists, otherwise fill with zeros
+    for col in standard_columns:
+        if col in df.columns:
+            std_df[col] = df[col]
+        else:
+            std_df[col] = 0.0
+    
+    return std_df
 
 def preprocess_dataset(data_dir: str, 
                       output_dir: str = 'processed_data',
@@ -20,7 +103,8 @@ def preprocess_dataset(data_dir: str,
                       test_size: float = 0.15,
                       validation_size: float = 0.15,
                       random_state: int = 42,
-                      batch_mode: bool = True) -> Dict:
+                      batch_mode: bool = True,
+                      min_disk_space_gb: float = 5.0) -> Dict:
     """
     Preprocess the NPPAD dataset and create train/val/test splits.
     
@@ -34,17 +118,35 @@ def preprocess_dataset(data_dir: str,
         validation_size (float): Proportion of data to use for validation
         random_state (int): Random seed for reproducibility
         batch_mode (bool): Whether to process data in batches to save memory
+        min_disk_space_gb (float): Minimum required disk space in GB
     
     Returns:
         Dict: Dictionary with processing stats
     """
     start_time = time.time()
     
+    # Check available disk space
+    disk_usage = shutil.disk_usage(os.path.dirname(os.path.abspath(output_dir)))
+    available_space_gb = disk_usage.free / (1024 ** 3)  # Convert bytes to GB
+    
+    if available_space_gb < min_disk_space_gb:
+        raise ValueError(f"Not enough disk space. Available: {available_space_gb:.2f} GB, Required: {min_disk_space_gb} GB")
+    
+    print(f"Available disk space: {available_space_gb:.2f} GB")
+    
     # Create output directory if it doesn't exist
     os.makedirs(output_dir, exist_ok=True)
     
     # Initialize components
     data_loader = NPPADDataLoader(data_dir)
+    
+    # Find standard columns first
+    standard_columns = standardize_columns(data_loader)
+    
+    # Save the standard columns
+    with open(os.path.join(output_dir, 'standard_columns.json'), 'w') as f:
+        json.dump(standard_columns, f)
+    
     processor = TimeSeriesProcessor(window_size, prediction_horizon, stride)
     validator = DataValidator()
     
@@ -59,13 +161,15 @@ def preprocess_dataset(data_dir: str,
         # Process one accident type at a time
         return batch_process_dataset(
             data_loader, processor, validator, output_dir, 
-            test_size, validation_size, random_state
+            test_size, validation_size, random_state, start_time,
+            standard_columns
         )
     else:
         # Process all data at once (may cause memory issues)
         return standard_process_dataset(
             data_loader, processor, validator, output_dir,
-            test_size, validation_size, random_state
+            test_size, validation_size, random_state, start_time,
+            standard_columns
         )
 
 def batch_process_dataset(data_loader: NPPADDataLoader, 
@@ -74,7 +178,9 @@ def batch_process_dataset(data_loader: NPPADDataLoader,
                          output_dir: str,
                          test_size: float = 0.15,
                          validation_size: float = 0.15,
-                         random_state: int = 42) -> Dict:
+                         random_state: int = 42,
+                         start_time: float = None,
+                         standard_columns: List[str] = None) -> Dict:
     """
     Process the dataset in batches (one accident type at a time) to reduce memory usage.
     
@@ -86,10 +192,16 @@ def batch_process_dataset(data_loader: NPPADDataLoader,
         test_size (float): Proportion of data for testing
         validation_size (float): Proportion of data for validation
         random_state (int): Random seed
+        start_time (float): Processing start time for statistics
+        standard_columns (List[str]): List of standard column names
         
     Returns:
         Dict: Processing statistics
     """
+    # If start_time was not provided, use current time
+    if start_time is None:
+        start_time = time.time()
+    
     print("Using batch processing mode to conserve memory")
     
     # Create directory for intermediate files
@@ -101,6 +213,7 @@ def batch_process_dataset(data_loader: NPPADDataLoader,
     all_features = set()
     all_sequences = 0
     accident_sequence_counts = {}
+    successful_accident_types = []
     
     for accident_type in data_loader.accident_types:
         acc_start_time = time.time()
@@ -111,6 +224,11 @@ def batch_process_dataset(data_loader: NPPADDataLoader,
         for sim_num in data_loader.data_mapping[accident_type]:
             try:
                 df, scram_time = data_loader.load_simulation_data(accident_type, sim_num)
+                
+                # Standardize columns if needed
+                if standard_columns:
+                    df = standardize_dataframe(df, standard_columns)
+                
                 accident_data[sim_num] = (df, scram_time)
             except Exception as e:
                 print(f"Error loading simulation {sim_num} for {accident_type}: {e}")
@@ -122,6 +240,14 @@ def batch_process_dataset(data_loader: NPPADDataLoader,
         
         # Process this accident type
         try:
+            # Check available disk space before processing
+            disk_usage = shutil.disk_usage(os.path.dirname(os.path.abspath(output_dir)))
+            available_space_gb = disk_usage.free / (1024 ** 3)
+            
+            if available_space_gb < 1.0:  # Require at least 1GB
+                print(f"Warning: Low disk space ({available_space_gb:.2f} GB). Skipping {accident_type}")
+                continue
+            
             # Fit the scaler on the first accident type
             if not processor.scaler_fitted:
                 # We need to scan all accident types first to get feature names
@@ -131,6 +257,11 @@ def batch_process_dataset(data_loader: NPPADDataLoader,
                     for sim_num in list(data_loader.data_mapping[acc_type])[:2]:  # Just get a couple of samples
                         try:
                             df, scram_time = data_loader.load_simulation_data(acc_type, sim_num)
+                            
+                            # Standardize columns if needed
+                            if standard_columns:
+                                df = standardize_dataframe(df, standard_columns)
+                                
                             sample_data[acc_type][sim_num] = (df, scram_time)
                         except:
                             continue
@@ -148,6 +279,7 @@ def batch_process_dataset(data_loader: NPPADDataLoader,
             seq_count = len(processed['X'])
             all_sequences += seq_count
             accident_sequence_counts[accident_type] = seq_count
+            successful_accident_types.append(accident_type)
             
             # Save this accident type's data
             acc_file = os.path.join(temp_dir, f"{accident_type}.pkl")
@@ -170,7 +302,19 @@ def batch_process_dataset(data_loader: NPPADDataLoader,
     print("\nSplitting data into train/val/test sets...")
     
     # Get all accident types that were successfully processed
-    processed_accident_types = [f.split('.')[0] for f in os.listdir(temp_dir) if f.endswith('.pkl')]
+    processed_accident_types = []
+    for acc_type in successful_accident_types:
+        acc_file = os.path.join(temp_dir, f"{acc_type}.pkl")
+        if os.path.exists(acc_file) and os.path.getsize(acc_file) > 0:
+            try:
+                # Try to load the file to ensure it's not corrupted
+                with open(acc_file, 'rb') as f:
+                    processed = pickle.load(f)
+                processed_accident_types.append(acc_type)
+                del processed  # Free memory
+                gc.collect()
+            except Exception as e:
+                print(f"Error loading {acc_type}.pkl: {e}. Skipping.")
     
     if not processed_accident_types:
         raise ValueError("No accident types were successfully processed")
@@ -178,13 +322,23 @@ def batch_process_dataset(data_loader: NPPADDataLoader,
     # Gather information about all simulations
     all_simulations = []
     for acc_type in processed_accident_types:
-        # Load the processed data
-        with open(os.path.join(temp_dir, f"{acc_type}.pkl"), 'rb') as f:
-            processed = pickle.load(f)
-        
-        # Extract unique simulations
-        sims = set((m['accident_type'], m['simulation']) for m in processed['metadata'])
-        all_simulations.extend(list(sims))
+        try:
+            # Load the processed data
+            with open(os.path.join(temp_dir, f"{acc_type}.pkl"), 'rb') as f:
+                processed = pickle.load(f)
+            
+            # Extract unique simulations
+            sims = set((m['accident_type'], m['simulation']) for m in processed['metadata'])
+            all_simulations.extend(list(sims))
+            
+            del processed  # Free memory
+            gc.collect()
+        except Exception as e:
+            print(f"Error extracting simulations from {acc_type}.pkl: {e}. Skipping.")
+            continue
+    
+    if not all_simulations:
+        raise ValueError("No valid simulations found in processed data")
     
     # Split simulations
     train_sims, test_sims = train_test_split(
@@ -207,40 +361,46 @@ def batch_process_dataset(data_loader: NPPADDataLoader,
     X_test, y_test, metadata_test = [], [], []
     
     for acc_type in processed_accident_types:
-        # Load the processed data
-        with open(os.path.join(temp_dir, f"{acc_type}.pkl"), 'rb') as f:
-            processed = pickle.load(f)
-        
-        # Create masks for this accident type
-        meta = processed['metadata']
-        X = processed['X']
-        y = processed['y']
-        
-        train_mask = np.array([(m['accident_type'], m['simulation']) in train_sims for m in meta])
-        val_mask = np.array([(m['accident_type'], m['simulation']) in val_sims for m in meta])
-        test_mask = np.array([(m['accident_type'], m['simulation']) in test_sims for m in meta])
-        
-        # Split data
-        if np.any(train_mask):
-            X_train.append(X[train_mask])
-            y_train.append(y[train_mask])
-            metadata_train.extend([m for i, m in enumerate(meta) if train_mask[i]])
+        try:
+            # Load the processed data
+            with open(os.path.join(temp_dir, f"{acc_type}.pkl"), 'rb') as f:
+                processed = pickle.load(f)
             
-        if np.any(val_mask):
-            X_val.append(X[val_mask])
-            y_val.append(y[val_mask])
-            metadata_val.extend([m for i, m in enumerate(meta) if val_mask[i]])
+            # Create masks for this accident type
+            meta = processed['metadata']
+            X = processed['X']
+            y = processed['y']
             
-        if np.any(test_mask):
-            X_test.append(X[test_mask])
-            y_test.append(y[test_mask])
-            metadata_test.extend([m for i, m in enumerate(meta) if test_mask[i]])
+            train_mask = np.array([(m['accident_type'], m['simulation']) in train_sims for m in meta])
+            val_mask = np.array([(m['accident_type'], m['simulation']) in val_sims for m in meta])
+            test_mask = np.array([(m['accident_type'], m['simulation']) in test_sims for m in meta])
             
-        # Clean up
-        del processed
-        gc.collect()
+            # Split data
+            if np.any(train_mask):
+                X_train.append(X[train_mask])
+                y_train.append(y[train_mask])
+                metadata_train.extend([m for i, m in enumerate(meta) if train_mask[i]])
+                
+            if np.any(val_mask):
+                X_val.append(X[val_mask])
+                y_val.append(y[val_mask])
+                metadata_val.extend([m for i, m in enumerate(meta) if val_mask[i]])
+                
+            if np.any(test_mask):
+                X_test.append(X[test_mask])
+                y_test.append(y[test_mask])
+                metadata_test.extend([m for i, m in enumerate(meta) if test_mask[i]])
+                
+            # Clean up
+            del processed
+            gc.collect()
+        except Exception as e:
+            print(f"Error processing {acc_type} for train/val/test split: {e}. Skipping.")
+            continue
     
     # Concatenate data
+    print("Concatenating datasets...")
+    
     X_train = np.concatenate(X_train, axis=0) if X_train else np.array([])
     y_train = np.concatenate(y_train, axis=0) if y_train else np.array([])
     
@@ -302,7 +462,8 @@ def batch_process_dataset(data_loader: NPPADDataLoader,
         'stride': processor.stride,
         'test_size': test_size,
         'validation_size': validation_size,
-        'random_state': random_state
+        'random_state': random_state,
+        'standard_columns': standard_columns
     }
     
     with open(os.path.join(output_dir, 'processing_params.json'), 'w') as f:
@@ -341,7 +502,9 @@ def standard_process_dataset(data_loader: NPPADDataLoader,
                             output_dir: str,
                             test_size: float = 0.15,
                             validation_size: float = 0.15,
-                            random_state: int = 42) -> Dict:
+                            random_state: int = 42,
+                            start_time: float = None,
+                            standard_columns: List[str] = None) -> Dict:
     """
     Process the entire dataset at once - may cause memory issues with large datasets.
     
@@ -353,13 +516,33 @@ def standard_process_dataset(data_loader: NPPADDataLoader,
         test_size (float): Proportion of data for testing
         validation_size (float): Proportion of data for validation
         random_state (int): Random seed
+        start_time (float): Processing start time for statistics
+        standard_columns (List[str]): List of standard column names
         
     Returns:
         Dict: Processing statistics
     """
-    # Load all simulations
+    # If start_time was not provided, use current time
+    if start_time is None:
+        start_time = time.time()
+    
+    # Load all simulations with standardized columns
     print("Loading all simulation data...")
-    all_data = data_loader.load_all_simulations()
+    all_data = {}
+    
+    for accident_type in data_loader.accident_types:
+        all_data[accident_type] = {}
+        for sim_num in data_loader.data_mapping[accident_type]:
+            try:
+                df, scram_time = data_loader.load_simulation_data(accident_type, sim_num)
+                
+                # Standardize columns if needed
+                if standard_columns:
+                    df = standardize_dataframe(df, standard_columns)
+                    
+                all_data[accident_type][sim_num] = (df, scram_time)
+            except Exception as e:
+                print(f"Error loading {accident_type} simulation {sim_num}: {e}")
     
     # Process data into sequences
     print("Processing data into sequences...")
@@ -477,7 +660,8 @@ def standard_process_dataset(data_loader: NPPADDataLoader,
         'stride': processor.stride,
         'test_size': test_size,
         'validation_size': validation_size,
-        'random_state': random_state
+        'random_state': random_state,
+        'standard_columns': standard_columns
     }
     
     with open(os.path.join(output_dir, 'processing_params.json'), 'w') as f:
@@ -529,6 +713,7 @@ if __name__ == "__main__":
     parser.add_argument("--val_size", type=float, default=0.15, help="Proportion of data for validation")
     parser.add_argument("--random_state", type=int, default=42, help="Random seed for reproducibility")
     parser.add_argument("--batch_mode", action="store_true", help="Process in batches to conserve memory")
+    parser.add_argument("--min_disk_space", type=float, default=5.0, help="Minimum required disk space in GB")
     
     args = parser.parse_args()
     
@@ -541,7 +726,8 @@ if __name__ == "__main__":
         test_size=args.test_size,
         validation_size=args.val_size,
         random_state=args.random_state,
-        batch_mode=args.batch_mode
+        batch_mode=args.batch_mode,
+        min_disk_space_gb=args.min_disk_space
     )
     
     # Print key statistics
