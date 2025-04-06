@@ -22,13 +22,16 @@ The project uses the Nuclear Power Plant Accident Data (NPPAD) dataset, which co
 ├── time_series_processor.py  # Creates sliding windows and engineered features
 ├── data_validator.py      # Validates data quality and consistency
 ├── preprocess_data.py     # Main preprocessing pipeline
-├── model.py               # TCN with Attention model implementation (coming soon)
-├── train.py               # Model training script (coming soon)
-├── evaluate.py            # Model evaluation script (coming soon)
-├── inference.py           # Real-time inference script (coming soon)
+├── model.py               # TCN with Attention model implementation
+├── train.py               # Model training script
+├── evaluate.py            # Model evaluation script
+├── inference.py           # Real-time inference script
 ├── code_documentation.md  # Detailed documentation of code structure
 ├── project_analysis.md    # Project analysis and implementation plan
-└── processed_data/        # Processed dataset files (after running preprocessing)
+├── processed_data/        # Processed dataset files (after running preprocessing)
+├── models/                # Saved model weights and configurations
+├── plots/                 # Training curves and evaluation plots
+└── evaluation/            # Detailed evaluation results
 ```
 
 ## Getting Started
@@ -37,12 +40,16 @@ The project uses the Nuclear Power Plant Accident Data (NPPAD) dataset, which co
 
 ```
 Python 3.8+
-pandas
 numpy
+pandas
 scikit-learn
+scipy
+torch
 matplotlib
 seaborn
-torch (coming soon)
+tqdm
+joblib
+h5py
 ```
 
 ### Installation
@@ -73,7 +80,9 @@ This will:
 - Split data into train/validation/test sets
 - Save the processed data to the specified output directory
 
-## Data Preparation Phase
+## Project Phases
+
+### Phase 1: Data Preparation
 
 The data preparation phase includes:
 
@@ -82,32 +91,81 @@ The data preparation phase includes:
 3. **Sliding Window Creation**: Create fixed-size windows (30 time steps = 5 minutes) with corresponding labels
 4. **Data Validation**: Check for data quality issues, consistency, and proper label distribution
 
-## Model Architecture (Coming Soon)
+### Phase 2: Model Development
 
-The model architecture will consist of:
-- Temporal Convolutional Network (TCN) for capturing temporal patterns
-- Self-attention mechanism for learning dependencies between time steps
-- Cross-attention for understanding relationships between different parameters
+The model development phase includes:
+
+1. **Model Architecture**: Implementation of a Temporal Convolutional Network (TCN) with attention mechanisms
+2. **Training Pipeline**: Setting up the training loop with early stopping and validation
+3. **Evaluation Metrics**: Implementation of comprehensive evaluation metrics for binary classification
+4. **Real-Time Inference**: Development of a simulation environment for real-time inference
+
+## Model Architecture
+
+The model architecture consists of:
+
+1. **Temporal Convolutional Network (TCN)**:
+   - Dilated causal convolutions to capture long-range dependencies
+   - Residual connections to facilitate gradient flow
+   - Increasing receptive field to cover longer time periods
+
+2. **Attention Mechanisms**:
+   - Self-attention for temporal relationships within each parameter
+   - Cross-attention for relationships between different parameters
+
+3. **Classification Head**:
+   - Feed-forward layers for binary classification (Scram/No Scram)
 
 ## Usage
 
-### Training (Coming Soon)
+### Training
 
 ```bash
-python train.py --data_dir processed_data --model_dir models
+python train.py --data_dir processed_data --model_dir models --batch_size 32 --num_epochs 50
 ```
 
-### Evaluation (Coming Soon)
+Training options:
+- `--data_dir`: Directory with preprocessed data
+- `--model_dir`: Directory to save models
+- `--plot_dir`: Directory to save plots
+- `--batch_size`: Batch size for training
+- `--num_epochs`: Number of training epochs
+- `--learning_rate`: Initial learning rate
+- `--patience`: Patience for early stopping
+- `--tcn_channels`: Comma-separated list of TCN channel sizes
+- `--kernel_size`: Kernel size for TCN
+- `--dropout`: Dropout rate
+- `--attention_size`: Dimension of attention mechanism
+- `--num_heads`: Number of attention heads
+- `--no_cuda`: Disable CUDA
+- `--seed`: Random seed
+
+### Evaluation
 
 ```bash
-python evaluate.py --model_path models/best_model.pth --data_dir processed_data
+python evaluate.py --model_path models/best_model.pt --data_dir processed_data --output_dir evaluation
 ```
 
-### Inference (Coming Soon)
+Evaluation options:
+- `--model_path`: Path to saved model weights
+- `--data_dir`: Directory with preprocessed data
+- `--output_dir`: Directory to save evaluation results
+
+### Real-Time Inference
 
 ```bash
-python inference.py --model_path models/best_model.pth --input_data sample_data.csv
+python inference.py --model_path models/best_model.pt --data_path test_dataset.pkl --output_dir inference_results
 ```
+
+Inference options:
+- `--model_path`: Path to saved model weights
+- `--data_path`: Path to simulation data (pickle or CSV)
+- `--output_dir`: Directory to save inference results
+- `--window_size`: Size of the sliding window for prediction
+- `--stride`: Stride for sliding window
+- `--threshold`: Threshold for binary prediction
+- `--time_delay`: Delay between processing steps (seconds)
+- `--no_plot`: Disable real-time plotting
 
 ## License
 
