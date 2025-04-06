@@ -25,6 +25,17 @@ logging.basicConfig(
 # Suppress pandas warnings
 warnings.filterwarnings("ignore", category=pd.errors.DtypeWarning)
 
+# Custom JSON encoder to handle NumPy types
+class NumpyEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, np.integer):
+            return int(obj)
+        elif isinstance(obj, np.floating):
+            return float(obj)
+        elif isinstance(obj, np.ndarray):
+            return obj.tolist()
+        return super(NumpyEncoder, self).default(obj)
+
 def find_accident_timestamp(report_file):
     """
     Parse the TransientReport file to find the timestamp of an accident (Reactor Scram or Core Meltdown)
@@ -208,14 +219,14 @@ def align_csv_dimensions(csv_files, max_workers=8):
         logging.info(f"Common columns: {len(common_columns)}/{len(all_columns)}")
         logging.info(f"Final column set: {len(final_columns)} columns")
         
-        # Save column information for reference
+        # Save column information for reference - Use the custom JSON encoder
         with open('column_info.json', 'w') as f:
             json.dump({
                 'common_columns': list(common_columns),
                 'all_columns': list(all_columns),
                 'final_columns': final_columns,
                 'file_columns': file_columns
-            }, f, indent=2)
+            }, f, indent=2, cls=NumpyEncoder)
         
         # Process files in parallel
         results = []
@@ -230,9 +241,9 @@ def align_csv_dimensions(csv_files, max_workers=8):
         
         logging.info(f"Alignment complete: {successes} succeeded, {failures} failed")
         
-        # Save alignment results
+        # Save alignment results - Use the custom JSON encoder
         with open('alignment_results.json', 'w') as f:
-            json.dump(results, f, indent=2)
+            json.dump(results, f, indent=2, cls=NumpyEncoder)
         
         return True
     except Exception as e:
@@ -286,9 +297,9 @@ def process_all_simulations(root_dir, max_workers=8, align=True):
     logging.info(f"Files with accidents: {has_accident} ({has_accident/total_processed*100:.2f}%)")
     logging.info(f"Successfully labeled: {successfully_labeled} ({successfully_labeled/total_processed*100:.2f}%)")
     
-    # Save detailed results
+    # Save detailed results - Use the custom JSON encoder
     with open('processing_results.json', 'w') as f:
-        json.dump(results, f, indent=2)
+        json.dump(results, f, indent=2, cls=NumpyEncoder)
     
     # Do CSV alignment if requested
     if align and successfully_labeled > 0:

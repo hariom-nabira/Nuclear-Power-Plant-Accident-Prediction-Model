@@ -1,0 +1,26 @@
+2025-04-06 19:50:07,014 - INFO - Starting preprocessing of simulations in E:\V sem\Nuclear-Power-Plant-Accident-Prediction-Model\NPPAD
+2025-04-06 19:50:07,017 - INFO - Found 12 simulation directories
+2025-04-06 19:50:07,018 - INFO - Found 100 CSV files in E:\V sem\Nuclear-Power-Plant-Accident-Prediction-Model\NPPAD\FLB
+2025-04-06 19:50:07,020 - INFO - Found 101 CSV files in E:\V sem\Nuclear-Power-Plant-Accident-Prediction-Model\NPPAD\LLB
+2025-04-06 19:50:07,022 - INFO - Found 100 CSV files in E:\V sem\Nuclear-Power-Plant-Accident-Prediction-Model\NPPAD\LOCA
+2025-04-06 19:50:07,023 - INFO - Found 100 CSV files in E:\V sem\Nuclear-Power-Plant-Accident-Prediction-Model\NPPAD\LOCAC
+2025-04-06 19:50:07,024 - INFO - Found 99 CSV files in E:\V sem\Nuclear-Power-Plant-Accident-Prediction-Model\NPPAD\LR
+2025-04-06 19:50:07,026 - INFO - Found 100 CSV files in E:\V sem\Nuclear-Power-Plant-Accident-Prediction-Model\NPPAD\MD
+2025-04-06 19:50:07,026 - INFO - Found 100 CSV files in E:\V sem\Nuclear-Power-Plant-Accident-Prediction-Model\NPPAD\RI
+2025-04-06 19:50:07,027 - INFO - Found 100 CSV files in E:\V sem\Nuclear-Power-Plant-Accident-Prediction-Model\NPPAD\RW
+2025-04-06 19:50:07,029 - INFO - Found 100 CSV files in E:\V sem\Nuclear-Power-Plant-Accident-Prediction-Model\NPPAD\SGATR
+2025-04-06 19:50:07,030 - INFO - Found 110 CSV files in E:\V sem\Nuclear-Power-Plant-Accident-Prediction-Model\NPPAD\SGBTR
+2025-04-06 19:50:07,032 - INFO - Found 101 CSV files in E:\V sem\Nuclear-Power-Plant-Accident-Prediction-Model\NPPAD\SLBIC
+2025-04-06 19:50:07,034 - INFO - Found 100 CSV files in E:\V sem\Nuclear-Power-Plant-Accident-Prediction-Model\NPPAD\SLBOC
+2025-04-06 19:50:07,035 - INFO - Total simulations to process: 1211
+2025-04-06 19:50:18,166 - INFO - Total processed: 1211
+2025-04-06 19:50:18,167 - INFO - Files with reports: 1211 (100.00%)
+2025-04-06 19:50:18,167 - INFO - Files with accidents: 660 (54.50%)
+2025-04-06 19:50:18,167 - INFO - Successfully labeled: 660 (54.50%)
+2025-04-06 19:50:18,212 - INFO - Aligning dimensions for 1211 CSV files
+2025-04-06 19:50:18,213 - INFO - Finding common columns across 1211 CSV files
+2025-04-06 19:50:20,410 - INFO - Common columns: 97/103
+2025-04-06 19:50:20,411 - INFO - Final column set: 100 columns
+2025-04-06 19:50:47,343 - INFO - Alignment complete: 1211 succeeded, 0 failed
+2025-04-06 19:50:47,361 - INFO - Processing summary: {'total_processed': 1211, 'has_report': 1211, 'has_accident': 660, 'successfully_labeled': 660}
+2025-04-06 19:50:47,362 - INFO - Preprocessing complete!
