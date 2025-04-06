@@ -1,107 +1,119 @@
-# Nuclear Power Plant Accident Data Preprocessing
+# Nuclear Power Plant Accident Prediction System
 
-This repository contains scripts for preprocessing nuclear power plant accident simulation data. The preprocessing involves:
+This project implements a machine learning system to predict Reactor Scram events in nuclear power plants, using time-series data from plant operational parameters.
 
-1. Scanning TransientReport.txt files to find accident timestamps (Reactor Scram or Core Meltdown)
-2. Adding a "label" column to the corresponding CSV files:
-   - 0 for normal operation (before accident_time - 180 seconds)
-   - 1 for potential accident (after that point)
-3. Aligning all CSV files to have the same column structure
+## Project Overview
 
-## Requirements
+The system analyzes continuous time-series data from nuclear power plant simulations and predicts potential Reactor Scram events within the next 5 minutes. It uses a Temporal Convolutional Network (TCN) with Attention Mechanism to process the multivariate time-series data.
 
-- Python 3.6+
-- pandas
-- numpy
-- tqdm
+## Dataset
 
-Install required packages:
+The project uses the Nuclear Power Plant Accident Data (NPPAD) dataset, which contains:
+- 12 different accident types (LOCA, SGBTR, LR, MD, SGATR, SLBIC, LOCAC, RI, FLB, LLB, SLBOC, RW)
+- 100 simulations per accident type with varying severity (1% to 100%)
+- Each simulation has:
+  - Time series data (CSV): ~97 operational parameters recorded at 10-second intervals
+  - Transient Report (TXT): Detailed event log with timestamps of key events, including Reactor Scram
+
+## Project Structure
+
+```
+├── data_loader.py         # Handles loading and organizing dataset files
+├── time_series_processor.py  # Creates sliding windows and engineered features
+├── data_validator.py      # Validates data quality and consistency
+├── preprocess_data.py     # Main preprocessing pipeline
+├── model.py               # TCN with Attention model implementation (coming soon)
+├── train.py               # Model training script (coming soon)
+├── evaluate.py            # Model evaluation script (coming soon)
+├── inference.py           # Real-time inference script (coming soon)
+├── code_documentation.md  # Detailed documentation of code structure
+├── project_analysis.md    # Project analysis and implementation plan
+└── processed_data/        # Processed dataset files (after running preprocessing)
+```
+
+## Getting Started
+
+### Prerequisites
+
+```
+Python 3.8+
+pandas
+numpy
+scikit-learn
+matplotlib
+seaborn
+torch (coming soon)
+```
+
+### Installation
+
+1. Clone the repository
+```bash
+git clone https://github.com/yourusername/npp-accident-prediction.git
+cd npp-accident-prediction
+```
+
+2. Install required packages
+```bash
+pip install -r requirements.txt
+```
+
+### Data Preprocessing
+
+To preprocess the NPPAD dataset:
 
 ```bash
-pip install pandas numpy tqdm
+python preprocess_data.py --data_dir NPPAD --output_dir processed_data
 ```
 
-## Scripts
+This will:
+- Load all simulation data
+- Create sliding windows with labels
+- Add engineered features
+- Split data into train/validation/test sets
+- Save the processed data to the specified output directory
 
-### Basic Script (`preprocess_simulations.py`)
+## Data Preparation Phase
 
-This script provides basic functionality for preprocessing the simulation data:
+The data preparation phase includes:
+
+1. **Data Loading**: Read CSV files and extract Reactor Scram timestamps from Transient Reports
+2. **Feature Engineering**: Normalize data and add derived features like rates of change and rolling statistics
+3. **Sliding Window Creation**: Create fixed-size windows (30 time steps = 5 minutes) with corresponding labels
+4. **Data Validation**: Check for data quality issues, consistency, and proper label distribution
+
+## Model Architecture (Coming Soon)
+
+The model architecture will consist of:
+- Temporal Convolutional Network (TCN) for capturing temporal patterns
+- Self-attention mechanism for learning dependencies between time steps
+- Cross-attention for understanding relationships between different parameters
+
+## Usage
+
+### Training (Coming Soon)
 
 ```bash
-python preprocess_simulations.py
+python train.py --data_dir processed_data --model_dir models
 ```
 
-### Advanced Script (`preprocess_simulations_advanced.py`)
-
-This script offers more advanced features:
-- Parallel processing for faster execution
-- Memory optimization for large datasets
-- Detailed logging and error reporting
-- Command-line options for customization
-
-Usage:
+### Evaluation (Coming Soon)
 
 ```bash
-python preprocess_simulations_advanced.py --root-dir NPPAD --workers 8
+python evaluate.py --model_path models/best_model.pth --data_dir processed_data
 ```
 
-Options:
-- `--root-dir`: Root directory containing simulations (default: "NPPAD")
-- `--workers`: Maximum number of worker processes (default: 8)
-- `--no-align`: Skip CSV alignment step
-- `--align-only`: Only perform CSV alignment
+### Inference (Coming Soon)
 
-## Output Files
-
-The advanced script generates several output files:
-- `preprocess_log_*.log`: Detailed log of the preprocessing operation
-- `processing_results.json`: Detailed results of the processing operation
-- `column_info.json`: Information about columns across all CSV files
-- `alignment_results.json`: Results of the column alignment process
-
-## Directory Structure
-
-The scripts expect the following directory structure:
-
-```
-NPPAD/
-├── ACCIDENT_TYPE_1/
-│   ├── 1.csv
-│   ├── 1Transient Report.txt
-│   ├── 2.csv
-│   ├── 2Transient Report.txt
-│   └── ...
-├── ACCIDENT_TYPE_2/
-│   ├── 1.csv
-│   ├── 1Transient Report.txt
-│   ├── 2.csv
-│   ├── 2Transient Report.txt
-│   └── ...
-└── ...
+```bash
+python inference.py --model_path models/best_model.pth --input_data sample_data.csv
 ```
 
-## Example Workflow
+## License
 
-1. Basic preprocessing:
-   ```bash
-   python preprocess_simulations.py
-   ```
+[MIT License](LICENSE)
 
-2. Advanced preprocessing with custom options:
-   ```bash
-   python preprocess_simulations_advanced.py --root-dir /path/to/NPPAD --workers 16
-   ```
+## Acknowledgements
 
-3. Alignment only (if you've already labeled the data):
-   ```bash
-   python preprocess_simulations_advanced.py --align-only
-   ```
-
-## Label Format
-
-The preprocessing adds the following columns to each CSV file:
-- `label`: 0 for normal operation, 1 for potential accident
-- `accident_timestamp`: The timestamp when the accident occurred
-- `accident_type`: The type of accident (Reactor Scram or Core Meltdown)
-
-This labeling can be used for training machine learning models to predict nuclear power plant accidents before they occur. 
+- The NPPAD dataset used in this project
+- Contributors to the open-source libraries used in this project 
