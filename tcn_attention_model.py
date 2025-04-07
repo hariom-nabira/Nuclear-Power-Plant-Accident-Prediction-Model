@@ -75,7 +75,7 @@ CONFIG = {
     'results_dir': 'results',            # Directory to save results
     'class_weight': {0: 1, 1: 2},        # Weight for handling class imbalance
     'use_gpu': True,                     # Using GPU with memory management
-    'sample_size': 100,                  # Process only 200 files for testing
+    'sample_size': 700,                  # Process 700 files (approximately 60% of total dataset)
     'verbose': 1,                        # Verbosity level (0=silent, 1=progress bar, 2=one line per epoch)
     'data_chunk_size': 10000             # Process data in chunks to avoid memory issues
 }
