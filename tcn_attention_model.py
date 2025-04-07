@@ -61,7 +61,7 @@ CONFIG = {
     'prediction_horizon': 1,             # Binary prediction (will accident happen in next 180s)
     'k_folds': 3,                        # Number of folds for cross-validation
     'batch_size': 64,                    # Batch size for training
-    'epochs': 10,                        # Maximum number of epochs (reduced to 20)
+    'epochs': 20,                        # Maximum number of epochs (reduced to 20)
     'patience': 5,                       # Early stopping patience 
     'tcn_filters': [64, 128, 128],       # Filters for TCN layers
     'tcn_kernel_size': 3,                # Kernel size for TCN
@@ -75,7 +75,7 @@ CONFIG = {
     'results_dir': 'results',            # Directory to save results
     'class_weight': {0: 1, 1: 2},        # Weight for handling class imbalance
     'use_gpu': True,                     # Using GPU with memory management
-    'sample_size': 700,                  # Process 700 files (approximately 60% of total dataset)
+    'sample_size': 900,                  # Process 700 files (approximately 60% of total dataset)
     'verbose': 1,                        # Verbosity level (0=silent, 1=progress bar, 2=one line per epoch)
     'data_chunk_size': 10000             # Process data in chunks to avoid memory issues
 }
